@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     unsplash_secret_key: str = "kMFi_eiAUfz50H72PmK6pwu2nTAxLU-BveRbNf4jurg"
 
     # LLM配置 (从环境变量读取)
-    openai_api_key: str = "sk-7fbde6579c7140fca9bd97f95ee59c61"
+    openai_api_key: str = "sk-xxx"
     openai_base_url: str = "https://api.deepseek.com/v1"
     openai_model: str = "deepseek-chat"
 
