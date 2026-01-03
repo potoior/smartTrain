@@ -59,14 +59,27 @@ smartTrain/
 │   │   │       ├── trip.py         # 旅行规划接口
 │   │   │       ├── poi.py          # POI 搜索接口
 │   │   │       └── map.py          # 地图相关接口
+│   │   ├── Client/         # MCP 客户端
+│   │   │   └── MyMCPClient.py      # MCP 客户端实现
 │   │   ├── LLM/            # LLM 客户端
+│   │   │   └── llm.py              # LLM 客户端实现
+│   │   ├── Utils/          # 工具类
+│   │   │   ├── base.py             # 基础类
+│   │   │   ├── message.py          # 消息处理
+│   │   │   ├── registry.py         # 注册表
+│   │   │   └── utils.py            # 工具函数
 │   │   ├── mcp/            # MCP 协议工具
+│   │   │   ├── base.py             # MCP 基础类
+│   │   │   ├── mcp_wrapper_tool.py # MCP 包装工具
+│   │   │   └── protocol_tool.py    # MCP 协议工具
 │   │   ├── models/         # 数据模型
+│   │   │   └── schemas.py          # Pydantic 数据模型
 │   │   ├── services/       # 业务服务
 │   │   │   ├── amap_service.py     # 高德地图服务
 │   │   │   ├── llm_service.py      # LLM 服务
 │   │   │   └── unsplash_service.py # Unsplash 服务
-│   │   └── config.py       # 配置文件
+│   │   ├── config.py       # 配置文件
+│   │   └── __init__.py
 │   ├── main.py             # 应用入口
 │   └── run.py              # 启动脚本
 ├── frontend/               # 前端应用
@@ -77,11 +90,18 @@ smartTrain/
 │   │   ├── services/       # API 服务
 │   │   │   └── api.ts
 │   │   ├── types/          # TypeScript 类型定义
+│   │   │   └── index.ts
 │   │   ├── App.vue         # 根组件
 │   │   └── main.ts         # 应用入口
+│   ├── index.html
 │   ├── package.json
+│   ├── tsconfig.json
 │   └── vite.config.ts
-└── README.md
+├── .gitignore              # Git 忽略配置
+├── .python-version         # Python 版本
+├── pyproject.toml          # Python 项目配置
+├── uv.lock                 # UV 依赖锁定文件
+└── README.md               # 项目说明文档
 ```
 
 ## 快速开始
@@ -345,6 +365,16 @@ A: 检查以下几点：
 
 - 提交 Issue
 - 发送邮件至：2986486901@qq.com
+
+# 项目截图
+
+![image-20260103135013263](./README/image-20260103135013263.png)
+
+![image-20260103135033156](./README/image-20260103135033156.png)
+
+![image-20260103135039559](./README/image-20260103135039559.png)
+
+![](./README/image-20260103135110219.png)![image-20260103135059627](./README/image-20260103135059627.png)
 
 ## 致谢
 
