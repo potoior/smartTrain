@@ -38,9 +38,16 @@ class Settings(BaseSettings):
     redis_enabled: bool = os.getenv("REDIS_ENABLED", "true").lower() == "true"
 
     # 缓存配置
-    cache_poi_ttl: int = int(os.getenv("CACHE_POI_TTL") or "3600000")
-    cache_weather_ttl: int = int(os.getenv("CACHE_WEATHER_TTL") or "1800000")
-    cache_llm_ttl: int = int(os.getenv("CACHE_LLM_TTL") or "7200000")
+    cache_poi_ttl: int = int(os.getenv("CACHE_POI_TTL") or "3600")
+    cache_weather_ttl: int = int(os.getenv("CACHE_WEATHER_TTL") or "1800")
+    cache_llm_ttl: int = int(os.getenv("CACHE_LLM_TTL") or "7200")
+
+    # 熔断器配置
+    # 高德地图熔断器
+    amap_circuit_failure_threshold: int = int(os.getenv("AMAP_CIRCUIT_FAILURE_THRESHOLD") or "5")
+    amap_circuit_recovery_timeout: int = int(os.getenv("AMAP_CIRCUIT_RECOVERY_TIMEOUT") or "60")
+    amap_circuit_success_threshold: int = int(os.getenv("AMAP_CIRCUIT_SUCCESS_THRESHOLD") or "2")
+    amap_circuit_timeout: int = int(os.getenv("AMAP_CIRCUIT_TIMEOUT") or "10")
 
     # 日志配置
     log_level: str = "INFO"
@@ -118,6 +125,10 @@ def print_config():
 
     # 缓存配置
     print(f"缓存 TTL: POI={settings.cache_poi_ttl}s, 天气={settings.cache_weather_ttl}s, LLM={settings.cache_llm_ttl}s")
+
+    # 熔断器配置
+    print(f"熔断器: 已启用")
+    print(f"  - 高德地图: 失败阈值={settings.amap_circuit_failure_threshold}, 恢复超时={settings.amap_circuit_recovery_timeout}s, 成功阈值={settings.amap_circuit_success_threshold}, 调用超时={settings.amap_circuit_timeout}s")
 
 
 

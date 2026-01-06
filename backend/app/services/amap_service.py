@@ -6,9 +6,13 @@ from app.mcp import protocol_tool
 from app.mcp.protocol_tool import MCPTool
 from app.models.schemas import POIInfo, WeatherInfo, Location
 from app.cache import get_poi_cache, get_weather_cache
+from app.circuit_breaker_manager import circuit_breaker
 
 # 全局MCP工具实例
 _amap_mcp_tool = None
+
+# 全局AmapService实例
+_amap_service = None
 
 def get_amap_mcp_tool() -> MCPTool:
     """获取高德地图工具实例"""
@@ -34,6 +38,7 @@ class AmapService:
     def __init__(self):
         self.mcp_tool = get_amap_mcp_tool()
 
+    @circuit_breaker("amap_poi")
     def search_poi(self, keywords: str, city: str, citylimit: bool = True)\
             -> List[POIInfo]:
         """
@@ -130,6 +135,7 @@ class AmapService:
             print(f"❌ POI搜索失败: {str(e)}")
             return []
 
+    @circuit_breaker("amap_weather")
     def get_weather(self, city: str) -> List[WeatherInfo]:
         """
         查询天气
@@ -241,6 +247,7 @@ class AmapService:
             print(f"❌ 天气查询失败: {str(e)}")
             return []
 
+    @circuit_breaker("amap_route")
     def plan_route(
             self,
             origin_address: str,

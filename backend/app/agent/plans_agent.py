@@ -248,23 +248,39 @@ class MultiAgentTripPlanner:
             async def search_attraction():
                 print("📍 景点搜索Agent正在工作...")
                 print('[DEBUG] self.llm =', repr(self.llm))
-                result = self.attraction_agent.run(attraction_query)
+                loop = asyncio.get_event_loop()
+                result = await loop.run_in_executor(
+                    None,
+                    self.attraction_agent.run,
+                    attraction_query
+                )
                 print(f"✅ 景点搜索完成: {result[:200]}...\n")
                 return result
 
             async def search_weather():
                 print("🌤️  天气查询Agent正在工作...")
-                result = self.weather_agent.run(weather_query)
+                loop = asyncio.get_event_loop()
+                result = await loop.run_in_executor(
+                    None,
+                    self.weather_agent.run,
+                    weather_query
+                )
                 print(f"✅ 天气查询完成: {result[:200]}...\n")
                 return result
 
             async def search_hotel():
                 print("🏨 酒店搜索Agent正在工作...")
-                result = self.hotel_agent.run(hotel_query)
+                loop = asyncio.get_event_loop()
+                result = await loop.run_in_executor(
+                    None,
+                    self.hotel_agent.run,
+                    hotel_query
+                )
                 print(f"✅ 酒店搜索完成: {result[:200]}...\n")
                 return result
 
             # 并行执行所有搜索任务
+            
             attraction_response, weather_response, hotel_response = await asyncio.gather(
                 search_attraction(),
                 search_weather(),
