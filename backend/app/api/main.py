@@ -3,8 +3,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.app.api.router import poi, map as map_routes, trip
-from ..config import get_settings, validate_config, print_config
+from app.api.router import poi, map as map_routes, trip
+from app.config import get_settings, validate_config, print_config
 
 
 # 获取配置

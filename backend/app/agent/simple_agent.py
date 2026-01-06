@@ -3,9 +3,9 @@ from abc import ABC, abstractmethod
 from typing import Optional, Iterator, TYPE_CHECKING
 import re
 
-from backend.app.LLM.llm import LpyAgentsLLM
-from ..Utils.message import Message
-from ..config import Config
+from app.LLM.llm import LpyAgentsLLM
+from app.Utils.message import Message
+from app.config import Config
 
 class Agent(ABC):
     """Agent基类"""

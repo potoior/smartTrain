@@ -1,10 +1,11 @@
 from os import name
 from typing import Optional, List, Dict, Any
 
-from backend.app.config import get_settings
-from backend.app.mcp import protocol_tool
-from backend.app.mcp.protocol_tool import MCPTool
-from backend.app.models.schemas import POIInfo, WeatherInfo, Location
+from app.config import get_settings
+from app.mcp import protocol_tool
+from app.mcp.protocol_tool import MCPTool
+from app.models.schemas import POIInfo, WeatherInfo, Location
+from app.cache import get_poi_cache, get_weather_cache
 
 # 全局MCP工具实例
 _amap_mcp_tool = None
@@ -14,7 +15,7 @@ def get_amap_mcp_tool() -> MCPTool:
     global _amap_mcp_tool
     if _amap_mcp_tool is None:
         settings = get_settings()
-        if not settings.amap_key:
+        if not settings.amap_api_key:
             raise ValueError("请配置缺德地图密钥")
 
         _amap_mcp_tool = MCPTool(
@@ -47,7 +48,13 @@ class AmapService:
             POI信息列表
         """
         try:
-            # 调用MCP工具
+            # 尝试从缓存获取
+            poi_cache = get_poi_cache()
+            cached_pois = poi_cache.get(city, keywords, citylimit)
+            if cached_pois is not None:
+                return cached_pois
+
+            # 缓存未命中，调用 API
             result = self.mcp_tool.run({
                 "action": "call_tool",
                 "tool_name": "maps_text_search",
@@ -58,13 +65,66 @@ class AmapService:
                 }
             })
 
-            # 解析结果
-            # 注意: MCP工具返回的是字符串,需要解析
-            # 这里简化处理,实际应该解析JSON
-            print(f"POI搜索结果: {result[:200]}...")  # 打印前200字符
+            import json
+            import re
 
-            # TODO: 解析实际的POI数据
-            return []
+            poi_list = []
+
+            if isinstance(result, str):
+                result = result.strip()
+
+                if result.startswith('['):
+                    data = json.loads(result)
+                    if isinstance(data, list):
+                        for item in data:
+                            poi = POIInfo(
+                                id=str(item.get('id', '')),
+                                name=item.get('name', ''),
+                                type=item.get('type', ''),
+                                address=item.get('address', ''),
+                                location=Location(
+                                    longitude=float(item.get('location', {}).get('lng', 0)),
+                                    latitude=float(item.get('location', {}).get('lat', 0))
+                                ),
+                                tel=item.get('tel')
+                            )
+                            poi_list.append(poi)
+                elif result.startswith('{'):
+                    data = json.loads(result)
+                    if 'pois' in data:
+                        for item in data['pois']:
+                            poi = POIInfo(
+                                id=str(item.get('id', '')),
+                                name=item.get('name', ''),
+                                type=item.get('type', ''),
+                                address=item.get('address', ''),
+                                location=Location(
+                                    longitude=float(item.get('location', {}).get('lng', 0)),
+                                    latitude=float(item.get('location', {}).get('lat', 0))
+                                ),
+                                tel=item.get('tel')
+                            )
+                            poi_list.append(poi)
+                    else:
+                        poi = POIInfo(
+                            id=str(data.get('id', '')),
+                            name=data.get('name', ''),
+                            type=data.get('type', ''),
+                            address=data.get('address', ''),
+                            location=Location(
+                                longitude=float(data.get('location', {}).get('lng', 0)),
+                                latitude=float(data.get('location', {}).get('lat', 0))
+                            ),
+                            tel=data.get('tel')
+                        )
+                        poi_list.append(poi)
+
+            # 将结果存入缓存
+            if poi_list:
+                poi_cache.set(city, keywords, citylimit, poi_list)
+
+            print(f"POI搜索完成，找到 {len(poi_list)} 个结果")
+            return poi_list
 
         except Exception as e:
             print(f"❌ POI搜索失败: {str(e)}")
@@ -81,7 +141,26 @@ class AmapService:
             天气信息列表
         """
         try:
-            # 调用MCP工具
+            # 尝试从缓存获取
+            weather_cache = get_weather_cache()
+            cached_weather = weather_cache.get(city, "forecast")
+            if cached_weather is not None:
+                # 将缓存的字典数据转换为 WeatherInfo 对象列表
+                weather_list = []
+                for item in cached_weather:
+                    weather = WeatherInfo(
+                        date=item.get('date', ''),
+                        day_weather=item.get('day_weather', ''),
+                        night_weather=item.get('night_weather', ''),
+                        day_temp=item.get('day_temp', 0),
+                        night_temp=item.get('night_temp', 0),
+                        wind_direction=item.get('wind_direction', ''),
+                        wind_power=item.get('wind_power', '')
+                    )
+                    weather_list.append(weather)
+                return weather_list
+
+            # 缓存未命中，调用 API
             result = self.mcp_tool.run({
                 "action": "call_tool",
                 "tool_name": "maps_weather",
@@ -90,10 +169,73 @@ class AmapService:
                 }
             })
 
-            print(f"天气查询结果: {result[:200]}...")
+            import json
 
-            # TODO: 解析实际的天气数据
-            return []
+            weather_list = []
+
+            if isinstance(result, str):
+                result = result.strip()
+
+                if result.startswith('['):
+                    data = json.loads(result)
+                    if isinstance(data, list):
+                        for item in data:
+                            weather = WeatherInfo(
+                                date=item.get('date', ''),
+                                day_weather=item.get('dayweather', ''),
+                                night_weather=item.get('nightweather', ''),
+                                day_temp=item.get('daytemp', 0),
+                                night_temp=item.get('nighttemp', 0),
+                                wind_direction=item.get('daywind', ''),
+                                wind_power=item.get('daypower', '')
+                            )
+                            weather_list.append(weather)
+                elif result.startswith('{'):
+                    data = json.loads(result)
+                    if 'forecasts' in data:
+                        for forecast in data['forecasts']:
+                            if 'casts' in forecast:
+                                for item in forecast['casts']:
+                                    weather = WeatherInfo(
+                                        date=item.get('date', ''),
+                                        day_weather=item.get('dayweather', ''),
+                                        night_weather=item.get('nightweather', ''),
+                                        day_temp=item.get('daytemp', 0),
+                                        night_temp=item.get('nighttemp', 0),
+                                        wind_direction=item.get('daywind', ''),
+                                        wind_power=item.get('daypower', '')
+                                    )
+                                    weather_list.append(weather)
+                    else:
+                        weather = WeatherInfo(
+                            date=data.get('date', ''),
+                            day_weather=data.get('dayweather', ''),
+                            night_weather=data.get('nightweather', ''),
+                            day_temp=data.get('daytemp', 0),
+                            night_temp=data.get('nighttemp', 0),
+                            wind_direction=data.get('daywind', ''),
+                            wind_power=data.get('daypower', '')
+                        )
+                        weather_list.append(weather)
+
+            # 将结果存入缓存
+            if weather_list:
+                weather_data = [
+                    {
+                        'date': w.date,
+                        'day_weather': w.day_weather,
+                        'night_weather': w.night_weather,
+                        'day_temp': w.day_temp,
+                        'night_temp': w.night_temp,
+                        'wind_direction': w.wind_direction,
+                        'wind_power': w.wind_power
+                    }
+                    for w in weather_list
+                ]
+                weather_cache.set(city, weather_data, "forecast")
+
+            print(f"天气查询完成，获取 {len(weather_list)} 天数据")
+            return weather_list
 
         except Exception as e:
             print(f"❌ 天气查询失败: {str(e)}")
@@ -121,7 +263,6 @@ class AmapService:
             路线信息
         """
         try:
-            # 根据路线类型选择工具
             tool_map = {
                 "walking": "maps_direction_walking_by_address",
                 "driving": "maps_direction_driving_by_address",
@@ -130,36 +271,65 @@ class AmapService:
 
             tool_name = tool_map.get(route_type, "maps_direction_walking_by_address")
 
-            # 构建参数
             arguments = {
                 "origin_address": origin_address,
                 "destination_address": destination_address
             }
 
-            # 公共交通需要城市参数
             if route_type == "transit":
                 if origin_city:
                     arguments["origin_city"] = origin_city
                 if destination_city:
                     arguments["destination_city"] = destination_city
             else:
-                # 其他路线类型也可以提供城市参数提高准确性
                 if origin_city:
                     arguments["origin_city"] = origin_city
                 if destination_city:
                     arguments["destination_city"] = destination_city
 
-            # 调用MCP工具
             result = self.mcp_tool.run({
                 "action": "call_tool",
                 "tool_name": tool_name,
                 "arguments": arguments
             })
 
-            print(f"路线规划结果: {result[:200]}...")
+            import json
 
-            # TODO: 解析实际的路线数据
-            return {}
+            route_data = {}
+
+            if isinstance(result, str):
+                result = result.strip()
+
+                if result.startswith('{'):
+                    data = json.loads(result)
+
+                    if 'route' in data:
+                        route = data['route']
+                        if 'paths' in route and len(route['paths']) > 0:
+                            path = route['paths'][0]
+                            route_data = {
+                                "distance": path.get('distance', 0),
+                                "duration": path.get('duration', 0),
+                                "route_type": route_type,
+                                "description": path.get('instruction', ''),
+                                "steps": path.get('steps', [])
+                            }
+                    elif 'plan' in data:
+                        plan = data['plan']
+                        if 'transits' in plan and len(plan['transits']) > 0:
+                            transit = plan['transits'][0]
+                            route_data = {
+                                "distance": transit.get('distance', 0),
+                                "duration": transit.get('duration', 0),
+                                "route_type": route_type,
+                                "description": transit.get('segments', []),
+                                "segments": transit.get('segments', [])
+                            }
+                    else:
+                        route_data = data
+
+            print(f"路线规划完成，距离: {route_data.get('distance', 0)}米，耗时: {route_data.get('duration', 0)}秒")
+            return route_data
 
         except Exception as e:
             print(f"❌ 路线规划失败: {str(e)}")
@@ -188,9 +358,37 @@ class AmapService:
                 "arguments": arguments
             })
 
-            print(f"地理编码结果: {result[:200]}...")
+            import json
 
-            # TODO: 解析实际的坐标数据
+            if isinstance(result, str):
+                result = result.strip()
+
+                if result.startswith('['):
+                    data = json.loads(result)
+                    if isinstance(data, list) and len(data) > 0:
+                        item = data[0]
+                        return Location(
+                            longitude=float(item.get('location', {}).get('lng', 0)),
+                            latitude=float(item.get('location', {}).get('lat', 0))
+                        )
+                elif result.startswith('{'):
+                    data = json.loads(result)
+                    if 'geocodes' in data:
+                        geocodes = data['geocodes']
+                        if len(geocodes) > 0:
+                            item = geocodes[0]
+                            return Location(
+                                longitude=float(item.get('location', {}).get('lng', 0)),
+                                latitude=float(item.get('location', {}).get('lat', 0))
+                            )
+                    elif 'location' in data:
+                        loc = data['location']
+                        return Location(
+                            longitude=float(loc.get('lng', 0)),
+                            latitude=float(loc.get('lat', 0))
+                        )
+
+            print(f"地理编码完成")
             return None
 
         except Exception as e:

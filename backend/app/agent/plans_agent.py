@@ -1,10 +1,11 @@
 import json
+import asyncio
 
-from backend.app.agent.simple_agent import SimpleAgent
-from backend.app.config import get_settings
-from backend.app.mcp.protocol_tool import MCPTool
-from backend.app.models.schemas import TripRequest, TripPlan, DayPlan, Attraction, Location, Meal
-from backend.app.services.llm_service import get_llm
+from app.agent.simple_agent import SimpleAgent
+from app.config import get_settings
+from app.mcp.protocol_tool import MCPTool
+from app.models.schemas import TripRequest, TripPlan, DayPlan, Attraction, Location, Meal
+from app.services.llm_service import get_llm
 
 # ============ Agent提示词 ============
 
@@ -217,7 +218,7 @@ class MultiAgentTripPlanner:
             traceback.print_exc()
             raise
 
-    def plan_trip(self, request: TripRequest) -> TripPlan:
+    async def plan_trip(self, request: TripRequest) -> TripPlan:
         """
         使用多智能体协作生成旅行计划
 
@@ -236,24 +237,41 @@ class MultiAgentTripPlanner:
             print(f"偏好: {', '.join(request.preferences) if request.preferences else '无'}")
             print(f"{'=' * 60}\n")
 
-            # 步骤1: 景点搜索Agent搜索景点
-            print("📍 步骤1: 搜索景点...")
+            # 步骤1-3: 并行执行景点搜索、天气查询、酒店搜索
+            print("🔍 开始并行搜索景点、天气和酒店...")
+
             attraction_query = self._build_attraction_query(request)
-            print('[DEBUG] self.llm =', repr(self.llm))
-            attraction_response = self.attraction_agent.run(attraction_query)
-            print(f"景点搜索结果: {attraction_response[:200]}...\n")
-
-            # 步骤2: 天气查询Agent查询天气
-            print("🌤️  步骤2: 查询天气...")
             weather_query = f"请查询{request.city}的天气信息"
-            weather_response = self.weather_agent.run(weather_query)
-            print(f"天气查询结果: {weather_response[:200]}...\n")
-
-            # 步骤3: 酒店推荐Agent搜索酒店
-            print("🏨 步骤3: 搜索酒店...")
             hotel_query = f"请搜索{request.city}的{request.accommodation}酒店"
-            hotel_response = self.hotel_agent.run(hotel_query)
-            print(f"酒店搜索结果: {hotel_response[:200]}...\n")
+
+            # 创建异步任务
+            async def search_attraction():
+                print("📍 景点搜索Agent正在工作...")
+                print('[DEBUG] self.llm =', repr(self.llm))
+                result = self.attraction_agent.run(attraction_query)
+                print(f"✅ 景点搜索完成: {result[:200]}...\n")
+                return result
+
+            async def search_weather():
+                print("🌤️  天气查询Agent正在工作...")
+                result = self.weather_agent.run(weather_query)
+                print(f"✅ 天气查询完成: {result[:200]}...\n")
+                return result
+
+            async def search_hotel():
+                print("🏨 酒店搜索Agent正在工作...")
+                result = self.hotel_agent.run(hotel_query)
+                print(f"✅ 酒店搜索完成: {result[:200]}...\n")
+                return result
+
+            # 并行执行所有搜索任务
+            attraction_response, weather_response, hotel_response = await asyncio.gather(
+                search_attraction(),
+                search_weather(),
+                search_hotel()
+            )
+
+            print(f"{'=' * 60}\n")
 
             # 步骤4: 行程规划Agent整合信息生成计划
             print("📋 步骤4: 生成行程计划...")
@@ -287,6 +305,7 @@ class MultiAgentTripPlanner:
 
         # 直接返回工具调用格式
         query = f"请使用amap_maps_text_search工具搜索{request.city}的{keywords}相关景点。\n[TOOL_CALL:amap_maps_text_search:keywords={keywords},city={request.city}]"
+        print(query)
         return query
 
     def _build_planner_query(self, request: TripRequest, attractions: str, weather: str, hotels: str = "") -> str:

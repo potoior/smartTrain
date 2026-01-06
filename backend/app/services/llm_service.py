@@ -1,5 +1,5 @@
-from backend.app.LLM.llm import LpyAgentsLLM
-from backend.app.config import get_settings
+from app.LLM.llm import LpyAgentsLLM
+from app.config import get_settings
 
 # 全局LLM实例
 _llm_instance = None

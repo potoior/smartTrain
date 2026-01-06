@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
-from backend.app.agent.plans_agent import get_trip_planner_agent
-from backend.app.models.schemas import TripPlanResponse, TripRequest
+from app.agent.plans_agent import get_trip_planner_agent
+from app.models.schemas import TripPlanResponse, TripRequest
 
 router = APIRouter(prefix="/trip", tags=["旅行规划"])
 
@@ -36,7 +36,7 @@ async def plan_trip(request: TripRequest):
 
         # 生成旅行计划
         print("🚀 开始生成旅行计划...")
-        trip_plan = agent.plan_trip(request)
+        trip_plan = await agent.plan_trip(request)
 
         print("✅ 旅行计划生成成功,准备返回响应\n")
 

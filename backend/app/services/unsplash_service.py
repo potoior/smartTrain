@@ -2,7 +2,7 @@ from typing import List, Optional
 
 import requests
 
-from backend.app.config import get_settings
+from app.config import get_settings
 
 
 class UnsplashService:

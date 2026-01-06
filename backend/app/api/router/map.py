@@ -2,8 +2,8 @@
 
 from fastapi import APIRouter,Query,HTTPException
 
-from backend.app.models.schemas import POISearchResponse
-from backend.app.services.amap_service import get_amap_service
+from app.models.schemas import POISearchResponse
+from app.services.amap_service import get_amap_service
 
 router = APIRouter(prefix="/map", tags=["地图服务"])
 

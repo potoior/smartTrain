@@ -3,6 +3,8 @@ from typing import Optional, Literal, Iterator
 
 from openai import OpenAI
 
+from app.cache import get_llm_cache
+
 # 支持的LLM提供商
 SUPPORTED_PROVIDERS = Literal[
     "openai",
@@ -338,16 +340,39 @@ class LpyAgentsLLM:
         """
         非流式调用LLM，返回完整响应。
         适用于不需要流式输出的场景。
+        支持缓存以减少API调用成本。
         """
+        # 将消息列表转换为字符串作为缓存键
+        messages_str = str(messages)
+        temperature = kwargs.get('temperature', self.temperature)
+        max_tokens = kwargs.get('max_tokens', self.max_tokens)
+
+        # 尝试从缓存获取
+        llm_cache = get_llm_cache()
+        cached_response = llm_cache.get(messages_str, self.model, temperature, max_tokens)
+        if cached_response is not None:
+            llm_cache.record_hit()
+            print("✅ 命中缓存成功,从缓存获取 LLM 响应")
+            return cached_response.get('response', '')
+
+        # 缓存未命中，调用 LLM
+        llm_cache.record_miss()
+        print("❌ 缓存未命中,开始调用 LLM 模型...")
         try:
             response = self._client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                temperature=kwargs.get('temperature', self.temperature),
-                max_tokens=kwargs.get('max_tokens', self.max_tokens),
+                temperature=temperature,
+                max_tokens=max_tokens,
                 **{k: v for k, v in kwargs.items() if k not in ['temperature', 'max_tokens']}
             )
-            return response.choices[0].message.content
+            result = response.choices[0].message.content
+
+            # 将结果存入缓存
+            if result:
+                llm_cache.set(messages_str, result, self.model, temperature, max_tokens)
+
+            return result
         except Exception as e:
             raise Exception(f"LLM调用失败: {str(e)}")
 

@@ -1,5 +1,5 @@
 import os
-from typing import List
+from typing import List, Optional
 
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
@@ -18,16 +18,29 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000"
 
     # 高德地图API配置
-    amap_api_key: str = "b8f449b37d68e56b73dc8f45c380e968"
+    amap_api_key: str = os.getenv("AMAP_API_KEY") or "b8xxx"
 
     # Unsplash API配置
-    unsplash_access_key: str = "wmLuHWa2uD9K2um_tVKHu9TgVTBt_LutQzmztjDv1R8"
-    unsplash_secret_key: str = "kMFi_eiAUfz50H72PmK6pwu2nTAxLU-BveRbNf4jurg"
+    unsplash_access_key: str = os.getenv("UNSPLASH_ACCESS_KEY") or "wmLuHxxx"
+    unsplash_secret_key: str = os.getenv("UNSPLASH_SECRET_KEY") or "kMFi_eiAxxx"
 
     # LLM配置 (从环境变量读取)
-    openai_api_key: str = "sk-xxx"
-    openai_base_url: str = "https://api.deepseek.com/v1"
-    openai_model: str = "deepseek-chat"
+    openai_api_key: str = os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY") or "sk-7fbde6579xxxxx"
+    openai_base_url: str = os.getenv("LLM_BASE_URL") or "https://api.deepseek.com/v1"
+    openai_model: str = os.getenv("LLM_MODEL") or "deepseek-chat"
+
+    # Redis配置
+    redis_host: str = os.getenv("REDIS_HOST") or "localhost"
+    redis_port: int = int(os.getenv("REDIS_PORT") or "6379")
+    redis_db: int = int(os.getenv("REDIS_DB") or "0")
+    redis_password: Optional[str] = os.getenv("REDIS_PASSWORD")
+    redis_max_connections: int = int(os.getenv("REDIS_MAX_CONNECTIONS") or "10")
+    redis_enabled: bool = os.getenv("REDIS_ENABLED", "true").lower() == "true"
+
+    # 缓存配置
+    cache_poi_ttl: int = int(os.getenv("CACHE_POI_TTL") or "3600000")
+    cache_weather_ttl: int = int(os.getenv("CACHE_WEATHER_TTL") or "1800000")
+    cache_llm_ttl: int = int(os.getenv("CACHE_LLM_TTL") or "7200000")
 
     # 日志配置
     log_level: str = "INFO"
@@ -94,6 +107,17 @@ def print_config():
     print(f"LLM Base URL: {llm_base_url}")
     print(f"LLM Model: {llm_model}")
     print(f"日志级别: {settings.log_level}")
+
+    # Redis配置
+    print(f"Redis: {'已启用' if settings.redis_enabled else '未启用'}")
+    if settings.redis_enabled:
+        print(f"  - 主机: {settings.redis_host}:{settings.redis_port}")
+        print(f"  - 数据库: {settings.redis_db}")
+        print(f"  - 密码: {'已设置' if settings.redis_password else '未设置'}")
+        print(f"  - 最大连接数: {settings.redis_max_connections}")
+
+    # 缓存配置
+    print(f"缓存 TTL: POI={settings.cache_poi_ttl}s, 天气={settings.cache_weather_ttl}s, LLM={settings.cache_llm_ttl}s")
 
 
 
