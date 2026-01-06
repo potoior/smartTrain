@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.router import poi, map as map_routes, trip, circuit_breaker
+from app.api.router import poi, map as map_routes, trip, circuit_breaker, cache_warmup
 from app.config import get_settings, validate_config, print_config
 
 
@@ -33,6 +33,7 @@ app.include_router(trip.router, prefix="/api")
 app.include_router(poi.router, prefix="/api")
 app.include_router(map_routes.router, prefix="/api")
 app.include_router(circuit_breaker.router, prefix="/api")
+app.include_router(cache_warmup.router, prefix="/api")
 
 
 @app.on_event("startup")

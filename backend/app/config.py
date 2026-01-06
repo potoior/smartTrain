@@ -42,12 +42,33 @@ class Settings(BaseSettings):
     cache_weather_ttl: int = int(os.getenv("CACHE_WEATHER_TTL") or "1800")
     cache_llm_ttl: int = int(os.getenv("CACHE_LLM_TTL") or "7200")
 
+    # L1 缓存配置（内存缓存）
+    cache_poi_l1_max_size: int = int(os.getenv("CACHE_POI_L1_MAX_SIZE") or "1000")
+    cache_poi_l1_ttl: int = int(os.getenv("CACHE_POI_L1_TTL") or "300")
+    cache_weather_l1_max_size: int = int(os.getenv("CACHE_WEATHER_L1_MAX_SIZE") or "500")
+    cache_weather_l1_ttl: int = int(os.getenv("CACHE_WEATHER_L1_TTL") or "600")
+    cache_llm_l1_max_size: int = int(os.getenv("CACHE_LLM_L1_MAX_SIZE") or "2000")
+    cache_llm_l1_ttl: int = int(os.getenv("CACHE_LLM_L1_TTL") or "1800")
+
     # 熔断器配置
     # 高德地图熔断器
     amap_circuit_failure_threshold: int = int(os.getenv("AMAP_CIRCUIT_FAILURE_THRESHOLD") or "5")
     amap_circuit_recovery_timeout: int = int(os.getenv("AMAP_CIRCUIT_RECOVERY_TIMEOUT") or "60")
     amap_circuit_success_threshold: int = int(os.getenv("AMAP_CIRCUIT_SUCCESS_THRESHOLD") or "2")
     amap_circuit_timeout: int = int(os.getenv("AMAP_CIRCUIT_TIMEOUT") or "10")
+
+    # 重试配置
+    # LLM API 重试
+    llm_retry_max_attempts: int = int(os.getenv("LLM_RETRY_MAX_ATTEMPTS") or "3")
+    llm_retry_wait_min: int = int(os.getenv("LLM_RETRY_WAIT_MIN") or "1")
+    llm_retry_wait_max: int = int(os.getenv("LLM_RETRY_WAIT_MAX") or "10")
+    llm_retry_multiplier: int = int(os.getenv("LLM_RETRY_MULTIPLIER") or "2")
+
+    # 高德地图 API 重试
+    amap_retry_max_attempts: int = int(os.getenv("AMAP_RETRY_MAX_ATTEMPTS") or "3")
+    amap_retry_wait_min: int = int(os.getenv("AMAP_RETRY_WAIT_MIN") or "1")
+    amap_retry_wait_max: int = int(os.getenv("AMAP_RETRY_WAIT_MAX") or "10")
+    amap_retry_multiplier: int = int(os.getenv("AMAP_RETRY_MULTIPLIER") or "2")
 
     # 日志配置
     log_level: str = "INFO"
@@ -129,6 +150,11 @@ def print_config():
     # 熔断器配置
     print(f"熔断器: 已启用")
     print(f"  - 高德地图: 失败阈值={settings.amap_circuit_failure_threshold}, 恢复超时={settings.amap_circuit_recovery_timeout}s, 成功阈值={settings.amap_circuit_success_threshold}, 调用超时={settings.amap_circuit_timeout}s")
+
+    # 重试配置
+    print(f"重试机制: 已启用")
+    print(f"  - LLM API: 最大重试={settings.llm_retry_max_attempts}, 等待时间={settings.llm_retry_wait_min}-{settings.llm_retry_wait_max}s, 倍数={settings.llm_retry_multiplier}")
+    print(f"  - 高德地图: 最大重试={settings.amap_retry_max_attempts}, 等待时间={settings.amap_retry_wait_min}-{settings.amap_retry_wait_max}s, 倍数={settings.amap_retry_multiplier}")
 
 
 

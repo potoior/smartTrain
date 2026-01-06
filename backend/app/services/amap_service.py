@@ -1,6 +1,15 @@
 from os import name
 from typing import Optional, List, Dict, Any
 
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+    before_sleep_log
+)
+import logging
+
 from app.config import get_settings
 from app.mcp import protocol_tool
 from app.mcp.protocol_tool import MCPTool
@@ -37,6 +46,16 @@ class AmapService:
 
     def __init__(self):
         self.mcp_tool = get_amap_mcp_tool()
+        
+        # 配置日志
+        self._logger = logging.getLogger(__name__)
+
+        # 获取重试配置
+        settings = get_settings()
+        self._retry_max_attempts = settings.amap_retry_max_attempts
+        self._retry_wait_min = settings.amap_retry_wait_min
+        self._retry_wait_max = settings.amap_retry_wait_max
+        self._retry_multiplier = settings.amap_retry_multiplier
 
     @circuit_breaker("amap_poi")
     def search_poi(self, keywords: str, city: str, citylimit: bool = True)\
@@ -59,16 +78,8 @@ class AmapService:
             if cached_pois is not None:
                 return cached_pois
 
-            # 缓存未命中，调用 API
-            result = self.mcp_tool.run({
-                "action": "call_tool",
-                "tool_name": "maps_text_search",
-                "arguments": {
-                    "keywords": keywords,
-                    "city": city,
-                    "citylimit": str(citylimit).lower()
-                }
-            })
+            # 缓存未命中，调用 API（带重试）
+            result = self._search_poi_with_retry(keywords, city, citylimit)
 
             import json
             import re
@@ -135,6 +146,25 @@ class AmapService:
             print(f"❌ POI搜索失败: {str(e)}")
             return []
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=10),
+        retry=retry_if_exception_type(Exception),
+        before_sleep=before_sleep_log(logging.getLogger(__name__), logging.WARNING),
+        reraise=True
+    )
+    def _search_poi_with_retry(self, keywords: str, city: str, citylimit: bool = True):
+        """带重试机制的 POI 搜索 API 调用"""
+        return self.mcp_tool.run({
+            "action": "call_tool",
+            "tool_name": "maps_text_search",
+            "arguments": {
+                "keywords": keywords,
+                "city": city,
+                "citylimit": str(citylimit).lower()
+            }
+        })
+
     @circuit_breaker("amap_weather")
     def get_weather(self, city: str) -> List[WeatherInfo]:
         """
@@ -166,14 +196,8 @@ class AmapService:
                     weather_list.append(weather)
                 return weather_list
 
-            # 缓存未命中，调用 API
-            result = self.mcp_tool.run({
-                "action": "call_tool",
-                "tool_name": "maps_weather",
-                "arguments": {
-                    "city": city
-                }
-            })
+            # 缓存未命中，调用 API（带重试）
+            result = self._get_weather_with_retry(city)
 
             import json
 
@@ -247,6 +271,23 @@ class AmapService:
             print(f"❌ 天气查询失败: {str(e)}")
             return []
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=10),
+        retry=retry_if_exception_type(Exception),
+        before_sleep=before_sleep_log(logging.getLogger(__name__), logging.WARNING),
+        reraise=True
+    )
+    def _get_weather_with_retry(self, city: str):
+        """带重试机制的天气查询 API 调用"""
+        return self.mcp_tool.run({
+            "action": "call_tool",
+            "tool_name": "maps_weather",
+            "arguments": {
+                "city": city
+            }
+        })
+
     @circuit_breaker("amap_route")
     def plan_route(
             self,
@@ -294,11 +335,8 @@ class AmapService:
                 if destination_city:
                     arguments["destination_city"] = destination_city
 
-            result = self.mcp_tool.run({
-                "action": "call_tool",
-                "tool_name": tool_name,
-                "arguments": arguments
-            })
+            # 调用 API（带重试）
+            result = self._plan_route_with_retry(tool_name, arguments)
 
             import json
 
@@ -341,6 +379,21 @@ class AmapService:
         except Exception as e:
             print(f"❌ 路线规划失败: {str(e)}")
             return {}
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=10),
+        retry=retry_if_exception_type(Exception),
+        before_sleep=before_sleep_log(logging.getLogger(__name__), logging.WARNING),
+        reraise=True
+    )
+    def _plan_route_with_retry(self, tool_name: str, arguments: Dict[str, Any]):
+        """带重试机制的路线规划 API 调用"""
+        return self.mcp_tool.run({
+            "action": "call_tool",
+            "tool_name": tool_name,
+            "arguments": arguments
+        })
 
     def geocode(self, address: str, city: Optional[str] = None)\
             -> Optional[Location]:

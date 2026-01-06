@@ -2,8 +2,17 @@ import os
 from typing import Optional, Literal, Iterator
 
 from openai import OpenAI
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+    retry_if_exception_type,
+    before_sleep_log
+)
+import logging
 
 from app.cache import get_llm_cache
+from app.config import get_settings
 
 # 支持的LLM提供商
 SUPPORTED_PROVIDERS = Literal[
@@ -84,6 +93,16 @@ class LpyAgentsLLM:
 
         # 创建OpenAI客户端
         self._client = self._create_client()
+
+        # 配置日志
+        self._logger = logging.getLogger(__name__)
+
+        # 获取重试配置
+        settings = get_settings()
+        self._retry_max_attempts = settings.llm_retry_max_attempts
+        self._retry_wait_min = settings.llm_retry_wait_min
+        self._retry_wait_max = settings.llm_retry_wait_max
+        self._retry_multiplier = settings.llm_retry_multiplier
 
     def _auto_detect_provider(self, api_key: Optional[str], base_url: Optional[str]) -> str:
         """
@@ -314,27 +333,34 @@ class LpyAgentsLLM:
             str: 流式响应的文本片段
         """
         print(f"🧠 正在调用 {self.model} 模型...")
-        try:
-            response = self._client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                temperature=temperature if temperature is not None else self.temperature,
-                max_tokens=self.max_tokens,
-                stream=True,
-            )
+        # 使用重试机制调用 LLM
+        response = self._think_with_retry(messages, temperature)
 
-            # 处理流式响应
-            print("✅ 大语言模型响应成功:")
-            for chunk in response:
-                content = chunk.choices[0].delta.content or ""
-                if content:
-                    print(content, end="", flush=True)
-                    yield content
-            print()  # 在流式输出结束后换行
+        # 处理流式响应
+        print("✅ 大语言模型响应成功:")
+        for chunk in response:
+            content = chunk.choices[0].delta.content or ""
+            if content:
+                print(content, end="", flush=True)
+                yield content
+        print()  # 在流式输出结束后换行
 
-        except Exception as e:
-            print(f"❌ 调用LLM API时发生错误: {e}")
-            raise Exception(f"LLM调用失败: {str(e)}")
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=10),
+        retry=retry_if_exception_type(Exception),
+        before_sleep=before_sleep_log(logging.getLogger(__name__), logging.WARNING),
+        reraise=True
+    )
+    def _think_with_retry(self, messages: list[dict[str, str]], temperature: Optional[float] = None):
+        """带重试机制的流式 LLM 调用"""
+        return self._client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            temperature=temperature if temperature is not None else self.temperature,
+            max_tokens=self.max_tokens,
+            stream=True,
+        )
 
     def invoke(self, messages: list[dict[str, str]], **kwargs) -> str:
         """
@@ -358,23 +384,33 @@ class LpyAgentsLLM:
         # 缓存未命中，调用 LLM
         llm_cache.record_miss()
         print("❌ 缓存未命中,开始调用 LLM 模型...")
-        try:
-            response = self._client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                **{k: v for k, v in kwargs.items() if k not in ['temperature', 'max_tokens']}
-            )
-            result = response.choices[0].message.content
+        
+        # 使用重试机制调用 LLM
+        result = self._invoke_with_retry(messages, temperature, max_tokens, **kwargs)
 
-            # 将结果存入缓存
-            if result:
-                llm_cache.set(messages_str, result, self.model, temperature, max_tokens)
+        # 将结果存入缓存
+        if result:
+            llm_cache.set(messages_str, result, self.model, temperature, max_tokens)
 
-            return result
-        except Exception as e:
-            raise Exception(f"LLM调用失败: {str(e)}")
+        return result
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=10),
+        retry=retry_if_exception_type(Exception),
+        before_sleep=before_sleep_log(logging.getLogger(__name__), logging.WARNING),
+        reraise=True
+    )
+    def _invoke_with_retry(self, messages: list[dict[str, str]], temperature: float, max_tokens: Optional[int], **kwargs) -> str:
+        """带重试机制的 LLM 调用"""
+        response = self._client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **{k: v for k, v in kwargs.items() if k not in ['temperature', 'max_tokens']}
+        )
+        return response.choices[0].message.content
 
     def stream_invoke(self, messages: list[dict[str, str]], **kwargs) -> Iterator[str]:
         """
