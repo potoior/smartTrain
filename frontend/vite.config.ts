@@ -14,6 +14,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
+        // target: 'http://smartTrip.potoior.cn',
         target: 'http://localhost:8000',
         changeOrigin: true
       }

@@ -209,14 +209,14 @@ import { useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import { generateTripPlan } from '@/services/api'
 import type { TripFormData } from '@/types'
-import type { Dayjs } from 'dayjs'
+import dayjs from 'dayjs';
 
 const router = useRouter()
 const loading = ref(false)
 const loadingProgress = ref(0)
 const loadingStatus = ref('')
 
-const formData = reactive<TripFormData & { start_date: Dayjs | null; end_date: Dayjs | null }>({
+const formData = reactive<TripFormData>({
   city: '',
   start_date: null,
   end_date: null,
@@ -230,15 +230,21 @@ const formData = reactive<TripFormData & { start_date: Dayjs | null; end_date: D
 // 监听日期变化,自动计算旅行天数
 watch([() => formData.start_date, () => formData.end_date], ([start, end]) => {
   if (start && end) {
-    const days = end.diff(start, 'day') + 1
-    if (days > 0 && days <= 30) {
-      formData.travel_days = days
-    } else if (days > 30) {
-      message.warning('旅行天数不能超过30天')
-      formData.end_date = null
-    } else {
-      message.warning('结束日期不能早于开始日期')
-      formData.end_date = null
+    // 转换字符串日期为 dayjs 对象进行计算
+    const startDateObj = dayjs(start);
+    const endDateObj = dayjs(end);
+    
+    if(startDateObj.isValid() && endDateObj.isValid()) {
+      const days = endDateObj.diff(startDateObj, 'day') + 1
+      if (days > 0 && days <= 30) {
+        formData.travel_days = days
+      } else if (days > 30) {
+        message.warning('旅行天数不能超过30天')
+        formData.end_date = null
+      } else {
+        message.warning('结束日期不能早于开始日期')
+        formData.end_date = null
+      }
     }
   }
 })

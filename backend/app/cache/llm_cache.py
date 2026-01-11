@@ -9,6 +9,26 @@ from app.cache.lru_cache import MultiLevelCache
 from app.config import get_settings
 
 
+class RedisL2Adapter:
+    """Redis L2 缓存适配器"""
+    
+    def __init__(self, redis_manager):
+        self.redis = redis_manager
+
+    def get(self, key: str) -> Optional[Any]:
+        return self.redis.get_json(key)
+
+    def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+        return self.redis.set_json(key, value, ttl)
+
+    def delete(self, key: str) -> bool:
+        return self.redis.delete(key)
+        
+    def clear(self):
+        # Redis 清理由 LLMCache.clear_all() 通过 delete_pattern 处理
+        pass
+
+
 class LLMCache:
     """LLM 响应缓存管理器（多级缓存）"""
 
@@ -23,7 +43,7 @@ class LLMCache:
         )
         
         # 设置二级缓存（Redis）
-        self.multi_cache.set_l2_cache(self)
+        self.multi_cache.set_l2_cache(RedisL2Adapter(self.redis))
 
     def _generate_key(self, prompt: str, model: str, temperature: float,
                       max_tokens: Optional[int] = None) -> str:

@@ -1,8 +1,8 @@
 import axios from 'axios';
 import type { TripFormData, TripPlanResponse } from '@/types';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
-
+// const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://smartTrip.potoior.cn';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 const apiClient = axios.create({
 	baseURL: API_BASE_URL,
 	timeout: 480000, // 2分钟超时

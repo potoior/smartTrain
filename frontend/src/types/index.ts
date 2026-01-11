@@ -78,8 +78,8 @@ export interface TripPlan {
 
 export interface TripFormData {
   city: string
-  start_date: string
-  end_date: string
+  start_date: any // Allow Dayjs object or string
+  end_date: any   // Allow Dayjs object or string
   travel_days: number
   transportation: string
   accommodation: string

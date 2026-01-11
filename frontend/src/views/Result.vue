@@ -432,7 +432,8 @@ const loadAttractionPhotos = async () => {
 
   tripPlan.value.days.forEach(day => {
     day.attractions.forEach(attraction => {
-      const promise = fetch(`http://localhost:8000/api/poi/photo?name=${encodeURIComponent(attraction.name)}`)
+      const promise = fetch(
+        `http://http://localhost:8000/api/poi/photo?name=${encodeURIComponent(attraction.name)}`)
         .then(res => res.json())
         .then(data => {
           if (data.success && data.data.photo_url) {
@@ -786,6 +787,7 @@ const exportAsPDF = async () => {
   }
 }
 
+/*
 // 截取地图图片
 const captureMapImage = async () => {
   if (!map) return
@@ -828,6 +830,7 @@ const restoreMap = () => {
     snapshot.remove()
   }
 }
+*/
 
 // 初始化地图
 const initMap = async () => {

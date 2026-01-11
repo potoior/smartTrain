@@ -131,8 +131,8 @@ async def warmup_poi(queries: List[Dict[str, Any]], background_tasks: Background
 
 
 @router.post("/weather")
-async def warmup_weather(cities: List[str], weather_type: str = "current", 
-                         background_tasks: BackgroundTasks):
+async def warmup_weather(cities: List[str], background_tasks: BackgroundTasks,
+                         weather_type: str = "current"):
     """预热天气缓存
     
     - **cities**: 城市列表
@@ -157,9 +157,9 @@ async def warmup_weather(cities: List[str], weather_type: str = "current",
 
 
 @router.post("/llm")
-async def warmup_llm(prompts_responses: List[tuple], model: str = "deepseek-chat",
-                     temperature: float = 0.7, max_tokens: Optional[int] = None,
-                     background_tasks: BackgroundTasks):
+async def warmup_llm(prompts_responses: List[tuple], background_tasks: BackgroundTasks,
+                     model: str = "deepseek-chat", temperature: float = 0.7, 
+                     max_tokens: Optional[int] = None):
     """预热 LLM 缓存
     
     - **prompts_responses**: 提示词和响应的元组列表 [(prompt, response), ...]
